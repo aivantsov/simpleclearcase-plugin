@@ -65,7 +65,6 @@ public class ClearTool {
     private static final String PARAM_FMT     = "-fmt";
     private static final String PARAM_NCO     = "-nco";
     private static final String PARAM_RECURSE = "-recurse";
-    private static final String PARAM_LAST    = "-last";
     private static final String PARAM_EXEC    = "-exec";
     private static final String PARAM_BRANCH  = "-branch";
 
@@ -142,18 +141,18 @@ public class ClearTool {
     
     /**
      * @param loadRules the paths where to fetch commit dates from
+     * @param since date-time to list events recorded since (that is, at or after).
      * @return the latest commit date for each load rule
      * @throws IOException
      * @throws InterruptedException
      */
     public LoadRuleDateMap getLatestCommitDates(List<String> loadRules, 
-                             LoadRuleDateMap previousCommits) throws InterruptedException, IOException {
+                             LoadRuleDateMap previousCommits, Date since) throws InterruptedException, IOException {
         LoadRuleDateMap ret = new LoadRuleDateMap();
         for (String lr : loadRules) {
             // we fetch the latest date for load rule lr and limit the set of
             // entries from lshistory by giving the previous commit date for the load rule
-            ret.setBuildTime(lr, DateUtil.getLatestDate(
-                                                lshistory(lr, previousCommits.getBuiltTime(lr))));
+            ret.setBuildTime(lr, DateUtil.getLatestDate(lshistory(lr, since)));
         }
         return ret;
     }
@@ -165,12 +164,13 @@ public class ClearTool {
      *            specifies from when, we don't want to fetch information which
      *            has been collected for previous builds, this is load rule
      *            specific, not all load rule have the same commit-dates.
+     * @param since date-time to list events recorded since (that is, at or after).
      * @return
      * @throws IOException
      * @throws InterruptedException
      */
     public List<SimpleClearCaseChangeLogEntry> lshistory(List<String> loadRules, 
-                               LoadRuleDateMap previousCommit) throws InterruptedException, IOException {
+                               LoadRuleDateMap previousCommit, Date since) throws InterruptedException, IOException {
         List<SimpleClearCaseChangeLogEntry> entries = new ArrayList<SimpleClearCaseChangeLogEntry>();
 
         for (String lr : loadRules) {
@@ -272,16 +272,14 @@ public class ClearTool {
             cmd.add(PARAM_BRANCH, branch);
         }
         
+        cmd.add(PARAM_RECURSE);
         if (since != null) {
-            cmd.add(PARAM_RECURSE);
             // if the date is null, there is no time bound on lshistory            
             cmd.add(PARAM_SINCE, fmt.format(since).toLowerCase());
         } else {
-            // if it's the first build there isn't any previous date to take as starting point
-            // but we don't want a gigantic set, so we also add LAST parameter,
-            // to limit down the result set
-            cmd.add(PARAM_LAST);
-            cmd.add(PropUtils.getLshistoryLastNumEventsValue());
+            // it's the first build there are no any previous dates to take as starting point
+            // locate changes since yesterday
+            cmd.add(PARAM_SINCE, "yesterday");
         }
         
         

@@ -28,11 +28,13 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import jenkins.plugins.simpleclearcase.SimpleClearCaseChangeLogSet;
+import jenkins.plugins.simpleclearcase.util.DateUtil;
 import jenkins.plugins.simpleclearcase.util.DebugHelper;
 import jenkins.plugins.simpleclearcase.util.ListUtil;
 import jenkins.plugins.simpleclearcase.util.OsUtil;
@@ -62,6 +64,7 @@ public class SimpleClearCaseSCM extends SCM {
     public final static String LOG_COMPARE_REMOTE_REVISION_WITH = "compareRemoteRevisionWith";
     public final static String LOG_CHECKOUT                     = "checkout";
     public final static String LOG_CALC_REVISIONS_FROM_BUILD    = "calcRevisionsFromBuild";
+	public final static String LOG_GET_SINCE_DATE               = "getSinceDate";
 
     public final static int CHANGELOGSET_ORDER = SimpleClearCaseChangeLogEntryDateComparator.DECREASING;
 
@@ -111,7 +114,8 @@ public class SimpleClearCaseSCM extends SCM {
 
         // we send baselines LoadRuleDateMap to cleartool to limit the size of
         // the data fetched from lshistory. To speed up the polling.
-        remoteLRMap = ct.getLatestCommitDates(getLoadRulesAsList(), baselineLRMap);
+        Date since = getSinceDate(project, listener);
+        remoteLRMap = ct.getLatestCommitDates(getLoadRulesAsList(), baselineLRMap, since);
         
         DebugHelper.info(listener, "%s: remoteLRMap is: %s", LOG_COMPARE_REMOTE_REVISION_WITH, remoteLRMap);
         
@@ -144,6 +148,17 @@ public class SimpleClearCaseSCM extends SCM {
         return new PollingResult(baseline, remote, change);
     }
 
+    private Date getSinceDate(AbstractProject<?, ?> project, TaskListener listener) {
+        AbstractBuild<?, ?> lastBuild = project.getLastBuild();
+        if (lastBuild == null) {
+            DebugHelper.info(listener, "%s: no last build, returning null", LOG_GET_SINCE_DATE);
+            return null;
+        }
+        Date since = lastBuild.getTime();
+        DebugHelper.info(listener, "%s: since: %s", LOG_GET_SINCE_DATE, new DateUtil().formatDate(since));
+        return since;
+    }
+
     @Override
     public boolean checkout(AbstractBuild<?, ?> build, Launcher launcher, FilePath workspace, 
                     BuildListener listener, File changelogFile) throws IOException, InterruptedException {
@@ -155,6 +170,8 @@ public class SimpleClearCaseSCM extends SCM {
         List<SimpleClearCaseChangeLogEntry> entries;
         LoadRuleDateMap buildLRMap;
         
+        Date since = getSinceDate(build, listener);
+        
         // we don't have a latest commit date as we haven't tracked the
         // changelog due to the lack of previous builds.
         if (build.getPreviousBuild() != null && build.getPreviousBuild().getAction(SimpleClearCaseRevisionState.class) != null) {
@@ -162,7 +179,7 @@ public class SimpleClearCaseSCM extends SCM {
 
             DebugHelper.info(listener,"%s: Fetched Dates from previous builds RevisionState LRMap: %s",
                                                                 LOG_CHECKOUT, previousBuildLRMap);
-            entries = ct.lshistory(getLoadRulesAsList(), previousBuildLRMap);
+            entries = ct.lshistory(getLoadRulesAsList(), previousBuildLRMap, since);
 
             // from the entries we just fetched, we build a LR-map for the new revisionState
             // this needs to happen before we strip the previous LRMapping values from changelog
@@ -185,7 +202,7 @@ public class SimpleClearCaseSCM extends SCM {
             // there is a glitch with ClearCase, branch doesn't exist or
             // simply an IO error
             try {
-                entries = ct.lshistory(getLoadRulesAsList(), null);
+                entries = ct.lshistory(getLoadRulesAsList(), null, since);
             } catch (IOException e) {
                 String msg = "lshistory action threw IOException So we throw "
                              + "a AbortException, check log files for details";
@@ -211,6 +228,11 @@ public class SimpleClearCaseSCM extends SCM {
         DebugHelper.info(listener, "%s: Added RevisionState in checkout for build", LOG_CHECKOUT);
         
         return ((SimpleClearCaseChangeLogParser) createChangeLogParser()).writeChangeLog(changelogFile, set, listener);
+    }
+
+    private Date getSinceDate(AbstractBuild<?, ?> build, BuildListener listener) {
+        AbstractProject<?, ?> project = build.getProject();
+        return getSinceDate(project, listener);
     }
 
     @Override

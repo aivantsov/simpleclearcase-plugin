@@ -29,8 +29,10 @@ public class ListUtil {
             
             //for each entry we have to compare against each load rule
             for (String loadRule : loadRules) {
-                if (entry.containsPathWithPrefix(loadRule) && 
-                        entry.getDate().compareTo(loadRuleMap.getBuiltTime(loadRule)) == 0) {
+                Date builtTime = loadRuleMap.getBuiltTime(loadRule);
+                if (entry.containsPathWithPrefix(loadRule) &&
+                        builtTime != null &&
+                        entry.getDate().compareTo(builtTime) == 0) {
                     entriesToRemove.add(entry); //we add the entry we want to remove later on
                     break; //found a match for entry, then we skip comparing against other load rules
                 }

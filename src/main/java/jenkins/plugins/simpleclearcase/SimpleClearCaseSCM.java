@@ -64,7 +64,7 @@ public class SimpleClearCaseSCM extends SCM {
     public final static String LOG_COMPARE_REMOTE_REVISION_WITH = "compareRemoteRevisionWith";
     public final static String LOG_CHECKOUT                     = "checkout";
     public final static String LOG_CALC_REVISIONS_FROM_BUILD    = "calcRevisionsFromBuild";
-	public final static String LOG_GET_SINCE_DATE               = "getSinceDate";
+    public final static String LOG_GET_SINCE_DATE               = "getSinceDate";
 
     public final static int CHANGELOGSET_ORDER = SimpleClearCaseChangeLogEntryDateComparator.DECREASING;
 
@@ -177,13 +177,15 @@ public class SimpleClearCaseSCM extends SCM {
         if (build.getPreviousBuild() != null && build.getPreviousBuild().getAction(SimpleClearCaseRevisionState.class) != null) {
             LoadRuleDateMap previousBuildLRMap  = build.getPreviousBuild().getAction(SimpleClearCaseRevisionState.class).getLoadRuleDateMap();
 
-            DebugHelper.info(listener,"%s: Fetched Dates from previous builds RevisionState LRMap: %s",
+            DebugHelper.info(listener,"%s: Fetched dates from previous builds RevisionState LRMap: %s",
                                                                 LOG_CHECKOUT, previousBuildLRMap);
             entries = ct.lshistory(getLoadRulesAsList(), previousBuildLRMap, since);
 
             // from the entries we just fetched, we build a LR-map for the new revisionState
             // this needs to happen before we strip the previous LRMapping values from changelog
             buildLRMap = ListUtil.getLatestCommitDates(entries, getLoadRulesAsList());
+            DebugHelper.info(listener,"%s: Got latest commit dates for current build buildLRMap: %s",
+                             LOG_CHECKOUT, buildLRMap);
             
             // as we have fetched entries with the previous LRMapping we strip them away
             // before writing down to the changelog file
@@ -194,7 +196,7 @@ public class SimpleClearCaseSCM extends SCM {
             
             
         } else {
-            DebugHelper.info(listener, "%s: There is no Previous build or there isn't any RevisionState added, " + 
+            DebugHelper.info(listener, "%s: There is no previous build or there isn't any RevisionState added, " + 
                                                                 " we invoke lshistory with null date", LOG_CHECKOUT);
             //if we don't have any RevisionState from previous build.
             
